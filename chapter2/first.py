@@ -1,135 +1,171 @@
-# Chapter 2 , first excercise 
-
-# i have do some  modification than in moodle , but it works same ,
 from __future__ import annotations
-
 import ctypes
 
 
 class ReservedMemory:
-    def __init__(self, size):
+    def __init__(self, size: int) -> None:
+        # check if size is correct
+        if type(size) != int:
+            raise TypeError(" bro Memory size must be int")
         if size <= 0:
-            raise ValueError("size must be positive")
+            raise ValueError("Memory size must be > 0")
+
+        # make empty memory space
         self._reserved_memory = ctypes.create_string_buffer(size)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        # return total size
         return len(self._reserved_memory)
 
-    def copy(self, src, count=None, src_i=0, dst_i=0):
+    def copy(self, source, count=None, source_index=0, destination_index=0) -> None:
+        # if count not given, copy all
         if count is None:
-            count = len(src._reserved_memory) - src_i
+            count = len(source._reserved_memory) - source_index
 
-        self._reserved_memory[dst_i:dst_i + count] = \
-            src._reserved_memory[src_i:src_i + count]
+        # copy data from one place to another
+        self._reserved_memory[destination_index:destination_index + count] = \
+            source._reserved_memory[source_index:source_index + count]
 
-    def __getitem__(self, i):
-        return ord(self._reserved_memory[i])
+    def __getitem__(self, k: int) -> int:
+        # get value from memory
+        return ord(self._reserved_memory[k])
 
-    def __setitem__(self, i, v):
-        self._reserved_memory[i] = v
+    def __setitem__(self, k: int, val: int) -> None:
+        # set value in memory
+        self._reserved_memory[k] = val
 
 
 class IntArray:
-    def __init__(self, bytes_per_element=2):
+    def __init__(self, bytes_per_element: int = 2) -> None:
+        # start empty
         self._resmem = None
         self._size = 0
-        self._bpe = bytes_per_element
+        self._bytes_per_element = bytes_per_element
 
-        self._shift = 2 ** ((bytes_per_element * 8) - 1)
-        self._min = -self._shift
-        self._max = self._shift - 1
+        # find range of numbers
+        self._shift_val = 2 ** ((bytes_per_element * 8) - 1)
+        self._min_val = -self._shift_val
+        self._max_val = self._shift_val - 1
 
-    def __len__(self):
+    def __len__(self) -> int:
+        # return how many elements
         return self._size
 
     def __iter__(self):
+        # start loop from 0
         self._i = 0
         return self
 
     def __next__(self):
+        # give next value
         if self._i < self._size:
-            v = self[self._i]
+            value = self[self._i]
             self._i += 1
-            return v
-        raise StopIteration
+            return value
+        else:
+            # stop loop
+            raise StopIteration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        # show array nicely
         if self._size == 0:
             return "Empty IntArray"
-        return "IntArray (" + str(self._size) + " elements): [" + \
-               ", ".join(str(v) for v in self) + "]"
 
-    def __getitem__(self, index):
-        val = 0
-        for b in range(self._bpe):
-            val |= self._resmem[index * self._bpe + b] << (8 * b)
-        return val - self._shift
+        result = []
+        for v in self:
+            result.append(str(v))
 
-    def __setitem__(self, index, value):
-        if value < self._min or value > self._max:
-            raise TypeError("value out of range")
+        return "IntArray (" + str(self._size) + " elements): [" + ", ".join(result) + "]"
 
-        value += self._shift
-        for b in range(self._bpe):
-            self._resmem[index * self._bpe + b] = (value >> (8 * b)) & 255
+    def __getitem__(self, k: int) -> int:
+        # this will  read number from memory
+        stored = 0
 
-    def append(self, value):
-        self._size += 1
-        new_mem = ReservedMemory(self._size * self._bpe)
+        for b in range(self._bytes_per_element):
+            stored = stored | (self._resmem[k * self._bytes_per_element + b] << (8 * b))
 
-        if self._resmem:
+        return stored - self._shift_val
+
+    def __setitem__(self, k: int, val: int) -> None:
+        # check value range
+        if val < self._min_val or val > self._max_val:
+            raise TypeError("Value out of range")
+
+        v = val + self._shift_val
+
+        # break number into small  bytes
+        for b in range(self._bytes_per_element):
+            self._resmem[k * self._bytes_per_element + b] = (v >> (8 * b)) & 255
+
+    def append(self, val: int) -> None:
+        #  this add new value at end
+        if val < self._min_val or val > self._max_val:
+            raise TypeError("Value out of range")
+
+        self._size = self._size + 1
+
+        # make new memory
+        new_mem = ReservedMemory(self._size * self._bytes_per_element)
+
+        # copy old data
+        if self._resmem is not None:
             new_mem.copy(self._resmem)
 
         self._resmem = new_mem
-        self[self._size - 1] = value
+
+        # set last value
+        self[self._size - 1] = val
 
     def pop(self):
+        # it remove last value
         if self._size == 0:
             return None
 
-        v = self[self._size - 1]
-        self._size -= 1
+        val = self[self._size - 1]
+        self._size = self._size - 1
 
+        #  its resize memory
         if self._size == 0:
             self._resmem = None
         else:
-            new_mem = ReservedMemory(self._size * self._bpe)
-            new_mem.copy(self._resmem, self._size * self._bpe)
+            new_mem = ReservedMemory(self._size * self._bytes_per_element)
+            new_mem.copy(self._resmem, self._size * self._bytes_per_element)
             self._resmem = new_mem
 
-        return v
+        return val
 
-    # insert element at index
-    def insert(self, index, value):
+    def insert(self, index: int, val: int) -> None:
+        # insert value at position
         if index < 0 or index > self._size:
-            raise IndexError("wrong index")
+            raise IndexError("Index out of bounds")
 
-        self._size += 1
-        new_mem = ReservedMemory(self._size * self._bpe)
+        if val < self._min_val or val > self._max_val:
+            raise TypeError("Value out of range")
 
-        if self._resmem:
-            # copy before index
-            new_mem.copy(self._resmem, index * self._bpe)
+        self._size = self._size + 1
+
+        # new memory bigger
+        new_mem = ReservedMemory(self._size * self._bytes_per_element)
+
+        # copy before index
+        if self._resmem is not None:
+            new_mem.copy(self._resmem, index * self._bytes_per_element)
 
             # copy after index
             new_mem.copy(
                 self._resmem,
-                (self._size - index - 1) * self._bpe,
-                index * self._bpe,
-                (index + 1) * self._bpe
+                (self._size - index - 1) * self._bytes_per_element,
+                index * self._bytes_per_element,
+                (index + 1) * self._bytes_per_element,
             )
 
         self._resmem = new_mem
-        self[index] = value
 
-    # search value and return index
-    def search(self, value):
-        i = 0
-        while i < self._size:
-            if self[i] == value:
-                return i
-            i += 1
-        return -1
-    
+        # put new value
+        self[index] = val
 
-    
+
+#This code creates a custom integer array without using normal Python list.
+#It uses low-level memory (ctypes) to store numbers manually.
+
+
