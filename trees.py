@@ -21,3 +21,24 @@ def insert(root, value):
 
     # Return unchanged root
     return root
+
+
+def find_min(root):
+    if root is None:
+        return None
+
+    if root.left is None:
+        return root.value
+
+    return find_min(root.left)
+
+
+# -------- MAIN PART --------
+
+root = None
+values = [13, 7, 3, 8, 15, 14, 19, 18]
+
+for v in values:
+    root = insert(root, v)
+
+print("Lowest value in BST:", find_min(root))
